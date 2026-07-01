@@ -25,10 +25,6 @@ const scene = new THREE.Scene();
 //camera setup
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(54.32, 1.19, 79.89);
-// camera.lookAt(0, 0, 0);
-gui.add(camera.position, 'x').min(-20).max(20).step(0.1).name("camera x").listen();
-gui.add(camera.position, 'y').min(-20).max(20).step(0.1).name("camera y").listen();
-gui.add(camera.position, 'z').min(-20).max(20).step(0.1).name("camera z").listen();
 
 //skybox
 textureLoader.load(
@@ -53,29 +49,21 @@ gltfLoader.setDRACOLoader(dracoLoader)
 // let mixer = null
 let woolenWorldModel = null;
 let initRotation = {
-  // x : 0.0800,
-  // y: -0.98,
-  // z: 0
-  x : 0,
-  y: 0,
+  x : 0.0800,
+  y: -0.98,
   z: 0
+  // x : 0,
+  // y: 0,
+  // z: 0
 }
+const worldGroup = new THREE.Group();
+worldGroup.rotation.x = initRotation.x;
+worldGroup.rotation.y = initRotation.y;
+scene.add(worldGroup);
 gltfLoader.load("/models/woolen/woolen-world-2.glb",
   (gltf) => {
     woolenWorldModel = gltf.scene;
-    // console.log(gltf);
-    // woolenWorldModel.scale.set(0.25, 0.25, 0.25)
-     woolenWorldModel.rotation.x = initRotation.x;
-    woolenWorldModel.rotation.y = initRotation.y;
-    // mixer = new THREE.AnimationMixer(woolenWorldModel)
-    // const action = mixer.clipAction(gltf.animations[2])
-    // action.play()
-    scene.add(woolenWorldModel)
-
-
-    gui.add(woolenWorldModel.rotation, 'x').min(-6.28).max(6.28).step(0.1);
-    gui.add(woolenWorldModel.rotation, 'y').min(-6.28).max(6.28).step(0.1);
-    gui.add(woolenWorldModel.rotation, 'z').min(-6.28).max(6.28).step(0.1);
+    worldGroup.add(woolenWorldModel)
   },
   (progress) => {
     console.log('progress')
@@ -89,18 +77,13 @@ gltfLoader.load("/models/woolen/woolen-world-2.glb",
 
 //ball
 const ballGroup = new THREE.Group();
-ballGroup.position.set(100,100,100);
-camera.position.copy(ballGroup.position).addScalar(3)
-camera.lookAt(ballGroup.position);
+worldGroup.add(ballGroup);
+
 let ball = null;
 gltfLoader.load("/models/woolen/ball.glb",
   (gltf) => {
     ball = gltf.scene;
-    console.log(ball);
-    
-    
     ballGroup.add(ball);
-    scene.add(ballGroup)
 
     const allMeshes = getMeshesByName(ball, "Cube");
     allMeshes.forEach(mesh => {
@@ -109,12 +92,9 @@ gltfLoader.load("/models/woolen/ball.glb",
       mesh.material.ior = 1;
       
     })
-    // console.log("all mesh", allMeshes);
-    
-
   },
   (progress) => {
-    console.log('progress')
+    // console.log('progress')
     // console.log(progress)
   },
   (error) => {
@@ -142,27 +122,23 @@ for (let i = 0; i < blenderPoints.length - 1; i++) {
   
   const segment = new THREE.CubicBezierCurve3(p0, h1, h2, p1);
   curve.add(segment);
-  if(!next){
-    curve.closePath();
-  }
-  
 }
-curve.autoClose = true;
+curve.closePath();
+
+curve.autoClose = false;
+console.log("curve :", curve);
+
 
 const points = curve.getPoints(50);
 const curveGeometry = new THREE.BufferGeometry().setFromPoints(points);
 const curveMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 });
-// Create the final object to add to the scene
+
 const curveObject = new THREE.Line(curveGeometry, curveMaterial);
 curveObject.visible = true;
 scene.add(curveObject);
 curveObject.rotation.x = initRotation.x;
 curveObject.rotation.y = initRotation.y;
-
-// gui.add(curveObject.rotation, 'z').min(-6.28).max(6.28).step(0.1).name("line rotation Z");
-
-
-
+curveObject.visible = false;
 
 //renderer setup
 const renderer = new THREE.WebGLRenderer();
@@ -179,31 +155,22 @@ const dirLight = new THREE.DirectionalLight(0xffffff, 4);
 dirLight.position.set(10, 20, 10);
 scene.add(dirLight);
 
-//point light
-const light = new THREE.PointLight(0xffffff, 1);
-light.position.set(10, 20, 10);
-scene.add(light);
-
-// Light helper (to visualize the light)
-const helper = new THREE.DirectionalLightHelper(dirLight, 1);
-// scene.add(helper);
-
 //controls setup
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 // controls.dampingFactor = 0.05;
 
 //animation loop
-let progress = 0;
+let progress = 0.6;
+let rotateWorld = { value : true}
+gui.add(rotateWorld, 'value').name("Rotate World");
 function wrap01(t) {
   return ((t % 1) + 1) % 1;
 }
 function animate() {
-    //rotate model 
-    if(woolenWorldModel){
-        // woolenWorldModel.rotation.z -= 0.002;
-        // curveObject.rotation.z -= 0.002;
-        
+    
+    if(rotateWorld.value){
+      worldGroup.rotation.z -= 0.002;
     }
 
     //progress
@@ -212,15 +179,16 @@ function animate() {
     const position = curve.getPointAt(progress);
     const tangent = curve.getTangentAt(progress).normalize();
     
+    //rotate model 
     if(ball){
-
-      // ball.rotation.y -= 0.01;
       ball.rotation.x += 0.08;
       ball.rotation.z += 0.04;
 
       ballGroup.position.copy(position).multiplyScalar(1.05);
       ballGroup.lookAt(position.clone().add(tangent));
     }
+    
+ 
 
     //update control
     controls.update();
